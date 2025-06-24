@@ -1,0 +1,91 @@
+install.packages("ipumsr")
+install.packages("tidyr")
+
+library("tidyr")
+library(ipumsr)
+library(dplyr)
+library(ggplot2)
+
+ddi <- read_ipums_ddi("./data/test_data/usa_00003.xml")
+data <- read_ipums_micro(ddi)
+ipums_data <- read_ipums_micro(ddi)
+glimpse(ipums_data)
+
+
+discrete_vars <- c("CIHISPEED", "CIDATAPLN", "CISMRTPHN", "CILAPTOP", "METRO")
+
+discrete_summary <- lapply(discrete_vars, function(var) {
+  ipums_data %>%
+    count(!!sym(var)) %>%
+    mutate(proportion = n / sum(n),
+           variable = var) %>%
+    rename(level = !!sym(var))
+}) %>%
+  bind_rows() %>%
+  select(variable, level, n, proportion)
+
+
+
+
+ipums_data <- ipums_data %>%
+  mutate(
+    laptop = ifelse(CILAPTOP == 1, 1, ifelse(CILAPTOP == 0, 0, NA)),
+    phone = ifelse(CISMRTPHN == 1, 1, ifelse(CISMRTPHN == 0, 0, NA)),
+    dataplan = ifelse(CIDATAPLN == 1, 1, ifelse(CIDATAPLN == 0, 0, NA)),
+    broadband = ifelse(CIHISPEED %in% c(10, 20), 1, ifelse(CIHISPEED == 0, 0, NA)),
+    digital_index = rowMeans(across(c(laptop, phone, dataplan, broadband)), na.rm = TRUE)
+  )
+
+
+continuous_vars <- c("DENSITY", "digital_index")
+
+continuous_summary <- ipums_data %>%
+  select(all_of(continuous_vars)) %>%
+  summarise(across(everything(), list(
+    mean = ~mean(. , na.rm = TRUE),
+    median = ~median(., na.rm = TRUE),
+    sd = ~sd(., na.rm = TRUE),
+    min = ~min(., na.rm = TRUE),
+    q25 = ~quantile(., 0.25, na.rm = TRUE),
+    q75 = ~quantile(., 0.75, na.rm = TRUE),
+    max = ~max(., na.rm = TRUE),
+    n = ~sum(!is.na(.))
+  ), .names = "{.col}_{.fn}")) %>%
+  pivot_longer(everything(),
+               names_to = c("variable", ".value"),
+               names_sep = "_")
+
+
+View(continuous_summary)
+View(discrete_summary)
+
+summary(ipums_data$CILAPTOP)
+summary(ipums_data$CISMRTPHN)
+summary(ipums_data$CIDATAPLN)
+summary(ipums_data$CIHISPEED)
+
+
+
+
+ipums_data <- ipums_data %>%
+  mutate(digital_index = as.numeric(digital_index))
+
+
+ggplot(ipums_data %>% filter(YEAR %in% c(2022, 2023)),
+       aes(x = digital_index, fill = factor(YEAR))) +
+  geom_density(alpha = 0.4) +
+  labs(title = "Distribution of Digital Index: 2022 vs 2023",
+       x = "Digital Amenity Index",
+       y = "Density",
+       fill = "Year") +
+  theme_minimal()
+
+
+ggplot(ipums_data %>% filter(YEAR %in% c(2022, 2023)),
+       aes(x = factor(METRO), y = digital_index, fill = factor(YEAR))) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.7) +
+  labs(title = "Digital Amenity Index by METRO and Year",
+       x = "METRO Code (0 = Non-Metro, 1+ = Metro Levels)",
+       y = "Digital Amenity Index",
+       fill = "Year") +
+  theme_minimal()
