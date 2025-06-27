@@ -1,2 +1,9 @@
-/data/
+/data/raw_data/usa_00004.dat
+/data/raw_data/usa_00004.xml
+/data/raw_data/usa_00005.dat
+/data/raw_data/usa_00005.xml
+/data/test_data/usa_00003.dat
+/data/test_data/usa_00003.xml
+/data/cleaned_data/data.csv
+/data/cleaned_data/data_with_county.csv
 .Rproj.user

@@ -9,7 +9,7 @@ library(dplyr)
 library(ggplot2)
 library(readr)
 
-ddi <- read_ipums_ddi("./data/raw_data/usa_00004.xml")
+ddi <- read_ipums_ddi("./data/raw_data/usa_00005.xml")
 data <- read_ipums_micro(ddi)
 ipums_data <- read_ipums_micro(ddi)
 glimpse(ipums_data)
@@ -91,8 +91,8 @@ summary(data_model)
 
 ## Save the cleaned data to designated path
 
-write_csv(data_model, "./data/cleaned_data/data.csv")
-file.exists("./data/cleaned_data/data.csv")
+write_csv(data_model, "./data/cleaned_data/data_with_county.csv")
+file.exists("./data/cleaned_data/data_with_county.csv")
 
 
 
