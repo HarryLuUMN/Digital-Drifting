@@ -7,3 +7,4 @@
 /data/cleaned_data/data.csv
 /data/cleaned_data/data_with_county.csv
 .Rproj.user
+.RDataTmp
