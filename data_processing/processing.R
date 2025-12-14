@@ -1,13 +1,17 @@
 # Packages Preparation
 
-install.packages("ipumsr")
+install.packages("ipumsr", type = "source")
 install.packages("tidyr")
 
-library("tidyr")
+library(tidyr)
 library(ipumsr)
 library(dplyr)
 library(ggplot2)
 library(readr)
+
+setwd("/Users/harrylu_mac/digital-drifting/Digital-Drifting")
+
+getwd()
 
 ddi <- read_ipums_ddi("./data/raw_data/usa_00005.xml")
 data <- read_ipums_micro(ddi)
