@@ -1,6 +1,8 @@
 # Digital Development Convergence in the United States: A Spatial and Temporal Analysis from 2013 to 2023
 
-**This paper won the Economic Writing Competition, 2025 fall (Top 1 paper)**.
+**This paper won the Economic Writing Competition, 2025 fall (Top 1 paper).**
+
+**Access the R shiny web app through:** https://harrylu0708.shinyapps.io/digital-convergence/. 
 
 This study investigates the convergence of digital infrastructure across U.S. counties and states from 2013 to 2023, with a focus on whether regional disparities in digital access have narrowed over time. Using microdata from the Integrated Public Use Microdata Series (IPUMS USA), we construct a household-level digital access index based on device and internet connectivity variables. We apply both standard σ- and β-convergence models as well as a spatial lag β-convergence model to evaluate two key hypotheses: (1) initially disadvantaged regions have experienced faster digital growth, and (2) geographically proximate regions converge together through spatial spillovers. Our results provide strong evidence of both σ- and β-convergence at the county and state levels, indicating a general reduction in the digital divide. However, we find no robust support for spatial spillovers—regions do not appear to converge faster as a result of their neighbors' growth. This suggests that while local catch-up dynamics are at play, geographic diffusion of digital development may be limited by policy fragmentation, administrative boundaries, or infrastructure barriers.
 
