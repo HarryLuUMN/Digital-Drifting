@@ -25,13 +25,17 @@ install.packages(c("spdep", "sf", "spatialreg"))
 
 # Convergence analysis package
 install.packages("ConvergenceClubs")
+
+# Shiny app packages (for interactive visualization)
+install.packages(c("shiny", "shinydashboard", "DT", "plotly"))
 ```
 
 Alternatively, you can install all packages at once:
 
 ```r
 required_packages <- c("dplyr", "tidyr", "readr", "ggplot2", "ggrepel", 
-                      "ipumsr", "spdep", "sf", "spatialreg", "ConvergenceClubs")
+                      "ipumsr", "spdep", "sf", "spatialreg", "ConvergenceClubs",
+                      "shiny", "shinydashboard", "DT", "plotly")
 
 install.packages(required_packages)
 ```
@@ -99,9 +103,49 @@ After running the scripts, you should see:
 - Results files in `data/results/`
 - Visualization plots in `images/`
 
+### Step 6: Interactive Visualization with Shiny App
+
+An interactive R Shiny web application is available to visualize the convergence analysis results.
+
+**To run the Shiny app:**
+
+1. Ensure you have completed the data processing steps (Steps 1-4) and have the cleaned data files available.
+
+2. Launch the app using one of the following methods:
+
+   **Method 1: From R Console**
+   ```r
+   library(shiny)
+   runApp("app.R")
+   ```
+
+   **Method 2: From RStudio**
+   - Open `app.R` in RStudio
+   - Click the "Run App" button in the top-right corner of the editor
+
+   **Method 3: From Command Line**
+   ```r
+   Rscript -e "shiny::runApp('app.R')"
+   ```
+
+3. The app will open in your default web browser. The dashboard includes:
+   - **Overview**: Summary statistics and project information
+   - **Sigma Convergence**: Interactive time series visualization of σ-convergence
+   - **Beta Convergence - County**: County-level β-convergence scatter plots with region type filters
+   - **Beta Convergence - State**: State-level β-convergence analysis
+   - **Data Explorer**: Interactive data table with filtering capabilities
+   - **Summary Statistics**: Descriptive statistics and distribution plots
+
+**Features:**
+- Interactive plots using Plotly (zoom, pan, hover for details)
+- Filterable data tables
+- Real-time model summaries
+- Region type filtering for county-level analysis
+
 ### Notes
 
 - Some scripts may require manual adjustment of file paths depending on your system
 - The IPUMS data files are large and may take time to process
 - Spatial analysis scripts require the geographic data files to be properly loaded
 - If you encounter package installation issues, ensure you have the latest version of R and try installing packages individually
+- The Shiny app requires the cleaned data files (`data/cleaned_data/data_with_county.csv`) to be present. If these files don't exist, run the data processing scripts first.
