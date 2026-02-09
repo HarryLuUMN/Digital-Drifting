@@ -10,36 +10,63 @@ library(readr)
 library(DT)
 library(plotly)
 
-# Load data
-data_path <- "./data/cleaned_data/data_with_county.csv"
-sigma_results_path <- "./data/results/county_sigma_convergence.csv"
+# Load data - Check for deployment data first, then fall back to full dataset
+deploy_data_path <- "./deploy_use_data"
+use_deployment_data <- dir.exists(deploy_data_path) && 
+  file.exists(file.path(deploy_data_path, "county_panel.csv"))
 
-# Check if data files exist, if not provide instructions
-if (!file.exists(data_path)) {
-  stop("Data file not found. Please ensure data/cleaned_data/data_with_county.csv exists.")
-}
-
-# Load main dataset
-data <- read_csv(data_path, show_col_types = FALSE)
-
-# Load sigma convergence results if available
-sigma_results <- NULL
-if (file.exists(sigma_results_path)) {
-  sigma_results <- read_csv(sigma_results_path, show_col_types = FALSE)
-} else {
-  # Compute sigma convergence on the fly
-  county_panel <- data %>%
-    filter(!is.na(digital_index), !is.na(COUNTYFIP)) %>%
-    group_by(YEAR, COUNTYFIP) %>%
-    summarise(avg_digital_index = mean(digital_index, na.rm = TRUE), .groups = "drop")
+if (use_deployment_data) {
+  # Use pre-processed deployment data (much smaller and faster)
+  cat("Loading deployment data...\n")
+  county_panel <- read_csv(file.path(deploy_data_path, "county_panel.csv"), show_col_types = FALSE)
+  sigma_results <- read_csv(file.path(deploy_data_path, "sigma_convergence.csv"), show_col_types = FALSE)
+  county_beta_precomputed <- read_csv(file.path(deploy_data_path, "county_beta_convergence.csv"), show_col_types = FALSE)
+  state_beta_precomputed <- read_csv(file.path(deploy_data_path, "state_beta_convergence.csv"), show_col_types = FALSE)
+  summary_stats_precomputed <- read_csv(file.path(deploy_data_path, "summary_stats.csv"), show_col_types = FALSE)
+  sample_data <- read_csv(file.path(deploy_data_path, "sample_data.csv"), show_col_types = FALSE)
   
-  sigma_results <- county_panel %>%
-    group_by(YEAR) %>%
-    summarise(std_dev = sd(avg_digital_index, na.rm = TRUE), .groups = "drop")
+  # Create a minimal data object for compatibility
+  data <- sample_data  # Use sample data for data explorer
+} else {
+  # Use full dataset (for local development)
+  data_path <- "./data/cleaned_data/data_with_county.csv"
+  sigma_results_path <- "./data/results/county_sigma_convergence.csv"
+  
+  if (!file.exists(data_path)) {
+    stop("Data file not found. Please ensure data/cleaned_data/data_with_county.csv exists or run process_data_for_deployment.R to create deployment data.")
+  }
+  
+  data <- read_csv(data_path, show_col_types = FALSE)
+  
+  # Load sigma convergence results if available
+  if (file.exists(sigma_results_path)) {
+    sigma_results <- read_csv(sigma_results_path, show_col_types = FALSE)
+  } else {
+    # Compute sigma convergence on the fly
+    county_panel <- data %>%
+      filter(!is.na(digital_index), !is.na(COUNTYFIP)) %>%
+      group_by(YEAR, COUNTYFIP) %>%
+      summarise(avg_digital_index = mean(digital_index, na.rm = TRUE), .groups = "drop")
+    
+    sigma_results <- county_panel %>%
+      group_by(YEAR) %>%
+      summarise(std_dev = sd(avg_digital_index, na.rm = TRUE), .groups = "drop")
+  }
+  
+  # Initialize precomputed data as NULL for full dataset mode
+  county_beta_precomputed <- NULL
+  state_beta_precomputed <- NULL
+  summary_stats_precomputed <- NULL
 }
 
 # Prepare county-level beta convergence data
 prepare_county_beta_data <- function() {
+  if (use_deployment_data && !is.null(county_beta_precomputed)) {
+    # Use precomputed data
+    return(county_beta_precomputed)
+  }
+  
+  # Compute from full dataset
   panel_data <- data %>%
     filter(YEAR %in% c(2013, 2023), !is.na(digital_index), !is.na(COUNTYFIP)) %>%
     group_by(YEAR, COUNTYFIP) %>%
@@ -71,6 +98,12 @@ prepare_county_beta_data <- function() {
 
 # Prepare state-level beta convergence data
 prepare_state_beta_data <- function() {
+  if (use_deployment_data && !is.null(state_beta_precomputed)) {
+    # Use precomputed data
+    return(state_beta_precomputed)
+  }
+  
+  # Compute from full dataset
   data_filtered <- data %>%
     filter(YEAR %in% c(2013, 2023), !is.na(COUNTYFIP), !is.na(STATEICP), !is.na(digital_index))
   
@@ -177,19 +210,31 @@ ui <- dashboardPage(
         ),
         fluidRow(
           valueBox(
-            value = nrow(data %>% filter(!is.na(COUNTYFIP)) %>% distinct(COUNTYFIP)),
+            value = if (use_deployment_data) {
+              nrow(county_panel %>% distinct(COUNTYFIP))
+            } else {
+              nrow(data %>% filter(!is.na(COUNTYFIP)) %>% distinct(COUNTYFIP))
+            },
             subtitle = "Counties Analyzed",
             icon = icon("map-marker-alt"),
             color = "blue"
           ),
           valueBox(
-            value = length(unique(data$YEAR)),
+            value = if (use_deployment_data) {
+              length(unique(county_panel$YEAR))
+            } else {
+              length(unique(data$YEAR))
+            },
             subtitle = "Years Covered",
             icon = icon("calendar"),
             color = "green"
           ),
           valueBox(
-            value = round(mean(data$digital_index, na.rm = TRUE), 3),
+            value = if (use_deployment_data) {
+              round(mean(county_panel$avg_digital_index, na.rm = TRUE), 3)
+            } else {
+              round(mean(data$digital_index, na.rm = TRUE), 3)
+            },
             subtitle = "Average Digital Index",
             icon = icon("chart-bar"),
             color = "yellow"
@@ -476,7 +521,8 @@ server <- function(input, output, session) {
   
   # Data Explorer - Filtered Data
   filtered_data <- reactive({
-    df <- data
+    # Use sample_data in deployment mode, full data otherwise
+    df <- if (use_deployment_data) sample_data else data
     
     # Apply filters
     df <- df %>%
@@ -502,14 +548,20 @@ server <- function(input, output, session) {
   
   # Summary Statistics - Year Plot
   output$summary_year_plot <- renderPlotly({
-    yearly_summary <- data %>%
-      filter(!is.na(digital_index)) %>%
-      group_by(YEAR) %>%
-      summarise(
-        mean_index = mean(digital_index, na.rm = TRUE),
-        median_index = median(digital_index, na.rm = TRUE),
-        .groups = "drop"
-      )
+    if (use_deployment_data && !is.null(summary_stats_precomputed)) {
+      yearly_summary <- summary_stats_precomputed %>%
+        select(YEAR, Mean, Median) %>%
+        rename(mean_index = Mean, median_index = Median)
+    } else {
+      yearly_summary <- data %>%
+        filter(!is.na(digital_index)) %>%
+        group_by(YEAR) %>%
+        summarise(
+          mean_index = mean(digital_index, na.rm = TRUE),
+          median_index = median(digital_index, na.rm = TRUE),
+          .groups = "drop"
+        )
+    }
     
     p <- ggplot(yearly_summary, aes(x = YEAR)) +
       geom_line(aes(y = mean_index, color = "Mean"), size = 1.2) +
@@ -530,7 +582,14 @@ server <- function(input, output, session) {
   
   # Summary Statistics - Distribution Plot
   output$summary_dist_plot <- renderPlotly({
-    p <- ggplot(data %>% filter(!is.na(digital_index)), aes(x = digital_index)) +
+    # Use county_panel avg_digital_index for distribution in deployment mode
+    dist_data <- if (use_deployment_data) {
+      county_panel %>% select(digital_index = avg_digital_index)
+    } else {
+      data %>% filter(!is.na(digital_index)) %>% select(digital_index)
+    }
+    
+    p <- ggplot(dist_data, aes(x = digital_index)) +
       geom_histogram(bins = 50, fill = "steelblue", alpha = 0.7, color = "white") +
       labs(
         title = "Distribution of Digital Index",
@@ -545,18 +604,22 @@ server <- function(input, output, session) {
   
   # Summary Statistics Table
   output$summary_table <- DT::renderDataTable({
-    summary_stats <- data %>%
-      filter(!is.na(digital_index)) %>%
-      group_by(YEAR) %>%
-      summarise(
-        Count = n(),
-        Mean = mean(digital_index, na.rm = TRUE),
-        Median = median(digital_index, na.rm = TRUE),
-        SD = sd(digital_index, na.rm = TRUE),
-        Min = min(digital_index, na.rm = TRUE),
-        Max = max(digital_index, na.rm = TRUE),
-        .groups = "drop"
-      )
+    if (use_deployment_data && !is.null(summary_stats_precomputed)) {
+      summary_stats <- summary_stats_precomputed
+    } else {
+      summary_stats <- data %>%
+        filter(!is.na(digital_index)) %>%
+        group_by(YEAR) %>%
+        summarise(
+          Count = n(),
+          Mean = mean(digital_index, na.rm = TRUE),
+          Median = median(digital_index, na.rm = TRUE),
+          SD = sd(digital_index, na.rm = TRUE),
+          Min = min(digital_index, na.rm = TRUE),
+          Max = max(digital_index, na.rm = TRUE),
+          .groups = "drop"
+        )
+    }
     
     DT::datatable(summary_stats,
       options = list(pageLength = 15, scrollX = TRUE),
